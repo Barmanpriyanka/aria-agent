@@ -16,7 +16,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://aria-agent-frontend.onrender.com",
+        "https://aria-agent-frontendd.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
