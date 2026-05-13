@@ -6,7 +6,7 @@ import MessageBubble from "./components/MessageBubble";
 import { useChatMemory } from "./hooks/useChatMemory";
 import { extractFileText } from "./utils/fileExtractor";
 
-const API_BASE = "https://aria-agent-backendd.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL;
 
 const MODELS = [
   { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", tag: "POWERFUL" },
