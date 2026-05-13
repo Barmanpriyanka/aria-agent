@@ -15,6 +15,222 @@ const MODELS = [
   { id: "gemma2-9b-it", name: "Gemma 2 9B", tag: "EFFICIENT" },
 ];
 
+// ── Auth helpers (localStorage-based, no backend needed) ─────────────────────
+const AUTH_KEY = "aria_users";
+const SESSION_KEY = "aria_current_user";
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "{}"); } catch { return {}; }
+}
+function saveUsers(users) {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(users));
+}
+function getCurrentUser() {
+  return localStorage.getItem(SESSION_KEY) || null;
+}
+function setCurrentUser(username) {
+  if (username) localStorage.setItem(SESSION_KEY, username);
+  else localStorage.removeItem(SESSION_KEY);
+}
+// Per-user chat sessions key
+function chatStorageKey(username) {
+  return `aria_chats_${username}`;
+}
+function loadUserChats(username) {
+  try { return JSON.parse(localStorage.getItem(chatStorageKey(username)) || "[]"); } catch { return []; }
+}
+function saveUserChats(username, sessions) {
+  localStorage.setItem(chatStorageKey(username), JSON.stringify(sessions));
+}
+
+// ── Auth Screen ───────────────────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = () => {
+    setError(""); setSuccess("");
+    const u = username.trim().toLowerCase();
+    const p = password;
+    if (!u || !p) { setError("Username and password are required."); return; }
+    if (u.length < 3) { setError("Username must be at least 3 characters."); return; }
+    if (p.length < 4) { setError("Password must be at least 4 characters."); return; }
+
+    const users = getUsers();
+
+    if (mode === "register") {
+      if (users[u]) { setError("Username already taken. Try logging in."); return; }
+      users[u] = { passwordHash: btoa(p), createdAt: Date.now() };
+      saveUsers(users);
+      setCurrentUser(u);
+      setSuccess("Account created! Welcome to ARIA.");
+      setTimeout(() => onAuth(u), 700);
+    } else {
+      if (!users[u]) { setError("No account found. Register first."); return; }
+      if (users[u].passwordHash !== btoa(p)) { setError("Incorrect password."); return; }
+      setCurrentUser(u);
+      onAuth(u);
+    }
+  };
+
+  const handleKey = (e) => { if (e.key === "Enter") handleSubmit(); };
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#080c14", display: "flex",
+      alignItems: "center", justifyContent: "center",
+      fontFamily: "'IBM Plex Mono', monospace",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        .auth-input{
+          width:100%;padding:11px 14px;border-radius:10px;font-size:13px;
+          font-family:'IBM Plex Mono',monospace;
+          background:rgba(255,255,255,0.04);border:1px solid rgba(0,245,160,0.15);
+          color:#e8eaf6;outline:none;transition:border-color 0.2s,background 0.2s;
+        }
+        .auth-input::placeholder{color:#2d3748}
+        .auth-input:focus{border-color:rgba(0,245,160,0.45);background:rgba(0,245,160,0.03)}
+        .auth-btn{
+          width:100%;padding:12px;border-radius:10px;font-size:12px;font-weight:700;
+          font-family:'IBM Plex Mono',monospace;letter-spacing:0.1em;
+          background:linear-gradient(135deg,#00f5a0,#00d9f5);color:#000;
+          border:none;cursor:pointer;transition:opacity 0.2s,transform 0.1s;
+          box-shadow:0 4px 20px rgba(0,245,160,0.25);
+        }
+        .auth-btn:hover{opacity:0.9;transform:translateY(-1px)}
+        .auth-btn:active{transform:translateY(0)}
+        .auth-link{background:none;border:none;color:rgba(0,245,160,0.5);
+          font-size:11px;font-family:'IBM Plex Mono',monospace;
+          cursor:pointer;text-decoration:underline;letter-spacing:0.05em}
+        .auth-link:hover{color:#00f5a0}
+      `}</style>
+
+      <div style={{
+        animation: "fadeUp 0.5s ease both",
+        width: "100%", maxWidth: 380, padding: "0 20px",
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 16, margin: "0 auto 14px",
+            background: "linear-gradient(135deg,#00f5a0,#00d9f5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 26, boxShadow: "0 0 30px rgba(0,245,160,0.3)",
+          }}>◈</div>
+          <div style={{
+            fontSize: 26, fontWeight: 700, fontFamily: "'Space Mono',monospace",
+            background: "linear-gradient(90deg,#00f5a0,#00d9f5)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            letterSpacing: "0.1em", marginBottom: 6,
+          }}>ARIA</div>
+          <div style={{ fontSize: 9, color: "#2d3748", letterSpacing: "0.18em" }}>
+            ADVANCED REASONING INTELLIGENCE AGENT
+          </div>
+        </div>
+
+        {/* Card */}
+        <div style={{
+          background: "rgba(255,255,255,0.02)", border: "1px solid rgba(0,245,160,0.1)",
+          borderRadius: 16, padding: "28px 24px",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        }}>
+          {/* Tab switcher */}
+          <div style={{
+            display: "flex", background: "rgba(0,0,0,0.3)",
+            borderRadius: 9, padding: 3, marginBottom: 22, gap: 3,
+          }}>
+            {["login", "register"].map(m => (
+              <button key={m} onClick={() => { setMode(m); setError(""); setSuccess(""); }}
+                style={{
+                  flex: 1, padding: "7px 0", borderRadius: 7, border: "none",
+                  fontFamily: "'IBM Plex Mono',monospace", fontSize: 10,
+                  letterSpacing: "0.1em", fontWeight: 600, cursor: "pointer",
+                  transition: "all 0.2s",
+                  background: mode === m ? "rgba(0,245,160,0.12)" : "transparent",
+                  color: mode === m ? "#00f5a0" : "#2d3748",
+                  border: mode === m ? "1px solid rgba(0,245,160,0.25)" : "1px solid transparent",
+                }}>
+                {m === "login" ? "SIGN IN" : "REGISTER"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 9, color: "#2d3748", letterSpacing: "0.12em", display: "block", marginBottom: 5 }}>
+                USERNAME
+              </label>
+              <input
+                className="auth-input"
+                type="text"
+                placeholder="your_username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                onKeyDown={handleKey}
+                autoComplete="username"
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 9, color: "#2d3748", letterSpacing: "0.12em", display: "block", marginBottom: 5 }}>
+                PASSWORD
+              </label>
+              <input
+                className="auth-input"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={handleKey}
+                autoComplete={mode === "register" ? "new-password" : "current-password"}
+              />
+            </div>
+
+            {error && (
+              <div style={{
+                fontSize: 11, color: "#f56565", padding: "8px 12px",
+                background: "rgba(245,101,101,0.08)", borderRadius: 8,
+                border: "1px solid rgba(245,101,101,0.2)", letterSpacing: "0.03em",
+              }}>⚠ {error}</div>
+            )}
+            {success && (
+              <div style={{
+                fontSize: 11, color: "#00f5a0", padding: "8px 12px",
+                background: "rgba(0,245,160,0.08)", borderRadius: 8,
+                border: "1px solid rgba(0,245,160,0.2)", letterSpacing: "0.03em",
+              }}>✓ {success}</div>
+            )}
+
+            <button className="auth-btn" onClick={handleSubmit} style={{ marginTop: 4 }}>
+              {mode === "login" ? "SIGN IN →" : "CREATE ACCOUNT →"}
+            </button>
+          </div>
+
+          <div style={{ marginTop: 16, textAlign: "center", fontSize: 10, color: "#2d3748" }}>
+            {mode === "login" ? (
+              <>No account? <button className="auth-link" onClick={() => { setMode("register"); setError(""); }}>Register here</button></>
+            ) : (
+              <>Already have one? <button className="auth-link" onClick={() => { setMode("login"); setError(""); }}>Sign in</button></>
+            )}
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 16, fontSize: 9, color: "#1a2030", letterSpacing: "0.1em" }}>
+          YOUR CHATS ARE SAVED LOCALLY PER ACCOUNT
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Typing indicator ──────────────────────────────────────────────────────────
 function TypingIndicator() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "5px", padding: "12px 0" }}>
@@ -28,12 +244,68 @@ function TypingIndicator() {
   );
 }
 
+// ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const {
-    sessions, activeSessionId, activeSession,
-    createSession, selectSession, updateSession,
-    deleteSession, renameSession,
-  } = useChatMemory();
+  const [currentUser, setCurrentUserState] = useState(() => getCurrentUser());
+
+  const handleAuth = (username) => {
+    setCurrentUserState(username);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setCurrentUserState(null);
+  };
+
+  if (!currentUser) {
+    return <AuthScreen onAuth={handleAuth} />;
+  }
+
+  return <ChatApp currentUser={currentUser} onLogout={handleLogout} />;
+}
+
+// ── Chat App (shown after login) ──────────────────────────────────────────────
+function ChatApp({ currentUser, onLogout }) {
+  // Per-user sessions: load from localStorage on mount
+  const [sessions, setSessions] = useState(() => loadUserChats(currentUser));
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    const chats = loadUserChats(currentUser);
+    return chats.length > 0 ? chats[0].id : null;
+  });
+
+  // Persist sessions to localStorage whenever they change
+  useEffect(() => {
+    saveUserChats(currentUser, sessions);
+  }, [sessions, currentUser]);
+
+  const activeSession = sessions.find(s => s.id === activeSessionId) || null;
+
+  const createSession = (title = "New Chat") => {
+    const id = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const newSession = { id, title, messages: [], createdAt: Date.now(), updatedAt: Date.now() };
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(id);
+    return id;
+  };
+
+  const selectSession = (id) => setActiveSessionId(id);
+
+  const updateSession = (id, updater) => {
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, ...(typeof updater === "function" ? updater(s) : updater) } : s));
+  };
+
+  const deleteSession = (id) => {
+    setSessions(prev => prev.filter(s => s.id !== id));
+    if (activeSessionId === id) {
+      setSessions(prev => {
+        const remaining = prev.filter(s => s.id !== id);
+        setActiveSessionId(remaining.length > 0 ? remaining[0].id : null);
+        return remaining;
+      });
+    }
+  };
+
+  const renameSession = (id, title) => updateSession(id, { title });
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,6 +320,7 @@ export default function App() {
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showFileZone, setShowFileZone] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const messages = activeSession?.messages || [];
 
@@ -62,6 +335,14 @@ export default function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handler = () => setShowUserMenu(false);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [showUserMenu]);
 
   // ── TTS ──────────────────────────────────────────────────────────────────
   const speak = useCallback((text) => {
@@ -110,7 +391,6 @@ export default function App() {
     if (!text || loading) return;
     stopSpeaking();
 
-    // Build file context string
     let fileContext = "";
     if (attachedFiles.length > 0) {
       fileContext = "\n\n[ATTACHED FILES]\n" + attachedFiles.map(f =>
@@ -121,7 +401,6 @@ export default function App() {
     const userContent = text + fileContext;
     const userMsg = { role: "user", content: text, fileRefs: attachedFiles.map(f => ({ name: f.name, type: f.type, size: f.size, preview: f.preview })) };
 
-    // Create session if none active
     let sessionId = activeSessionId;
     if (!sessionId) {
       sessionId = createSession(text.slice(0, 50));
@@ -143,17 +422,13 @@ export default function App() {
         ? content + "\n\n[Files attached: " + fileRefs.map(f => f.name).join(", ") + "]"
         : content
     }));
-
-    // Override last user message with file context embedded
     historyForApi[historyForApi.length - 1].content = userContent;
 
     if (streaming) {
       const assistantMsg = { role: "assistant", content: "", streaming: true };
       updateSession(sessionId, prev => ({ messages: [...(prev.messages || []).slice(0, -0), assistantMsg] }));
-      // re-add properly
       updateSession(sessionId, prev => {
         const msgs = [...prev.messages];
-        // assistant placeholder already added above, avoid double
         if (msgs[msgs.length - 1]?.streaming) return prev;
         return { messages: [...msgs, assistantMsg] };
       });
@@ -266,15 +541,17 @@ export default function App() {
   }, [sendMessage]);
 
   const stopListening = () => recognitionRef.current?.stop();
-
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
-
   const stopGeneration = () => { abortRef.current?.abort(); setLoading(false); setStatus("idle"); };
 
   const isThinking = loading && !isSpeaking;
   const sidebarW = sidebarOpen ? 260 : 0;
+
+  // Avatar is hidden behind the file zone when showFileZone is open.
+  // We float it above the file zone instead of inside the message area.
+  const avatarVisible = showAvatar;
 
   return (
     <div style={{
@@ -296,12 +573,13 @@ export default function App() {
         @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,101,101,0.5)}50%{box-shadow:0 0 0 10px rgba(245,101,101,0)}}
         @keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
         @keyframes shimmer{0%{background-position:-300% 0}100%{background-position:300% 0}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
         textarea:focus{outline:none}
         button{cursor:pointer;border:none}
         .file-chip:hover .file-remove{opacity:1!important}
+        .user-menu-item:hover{background:rgba(0,245,160,0.06)!important;color:#00f5a0!important}
       `}</style>
 
-      {/* ── Top layout: sidebar + main ── */}
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
 
         {/* Sidebar */}
@@ -334,7 +612,6 @@ export default function App() {
             flexShrink: 0, gap: 12,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              {/* Sidebar toggle */}
               <button onClick={() => setSidebarOpen(s => !s)} style={{
                 width: 34, height: 34, borderRadius: 9, fontSize: 14,
                 background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
@@ -401,6 +678,67 @@ export default function App() {
                   border: "1px solid rgba(245,101,101,0.25)", animation: "pulse 1s infinite",
                 }}>■ STOP</button>
               )}
+
+              {/* User account button */}
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowUserMenu(m => !m); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 7,
+                    padding: "5px 10px 5px 7px", borderRadius: 8,
+                    background: showUserMenu ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.03)",
+                    border: showUserMenu ? "1px solid rgba(0,245,160,0.3)" : "1px solid rgba(255,255,255,0.07)",
+                    transition: "all 0.2s",
+                  }}
+                  title="Account"
+                >
+                  <div style={{
+                    width: 22, height: 22, borderRadius: "50%",
+                    background: "linear-gradient(135deg,#00f5a0,#00d9f5)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, fontWeight: 700, color: "#000",
+                  }}>
+                    {currentUser[0].toUpperCase()}
+                  </div>
+                  <span style={{ fontSize: 10, color: "#00f5a0", letterSpacing: "0.07em", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {currentUser.toUpperCase()}
+                  </span>
+                </button>
+
+                {showUserMenu && (
+                  <div style={{
+                    position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 100,
+                    background: "#0d1420", border: "1px solid rgba(0,245,160,0.15)",
+                    borderRadius: 10, padding: "4px",
+                    boxShadow: "0 10px 40px rgba(0,0,0,0.7)",
+                    minWidth: 160, animation: "fadeIn 0.15s ease",
+                  }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: "8px 12px 6px", borderBottom: "1px solid rgba(255,255,255,0.04)", marginBottom: 4 }}>
+                      <div style={{ fontSize: 11, color: "#00f5a0", fontWeight: 600 }}>{currentUser}</div>
+                      <div style={{ fontSize: 9, color: "#2d3748", letterSpacing: "0.1em", marginTop: 1 }}>LOGGED IN</div>
+                    </div>
+                    <button
+                      className="user-menu-item"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        if (window.confirm("Sign out of ARIA?")) {
+                          stopSpeaking();
+                          onLogout();
+                        }
+                      }}
+                      style={{
+                        width: "100%", padding: "8px 12px", borderRadius: 7,
+                        background: "transparent", border: "none",
+                        color: "#4a5568", fontSize: 11, fontFamily: "'IBM Plex Mono',monospace",
+                        textAlign: "left", letterSpacing: "0.07em", transition: "all 0.15s",
+                        display: "flex", alignItems: "center", gap: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 13 }}>⎋</span> SIGN OUT
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </header>
 
@@ -429,11 +767,15 @@ export default function App() {
             ))}
           </div>
 
-          {/* Messages + avatar */}
-          <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+          {/* Messages area — no avatar overlap, avatar is now OUTSIDE this scroll container */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+
+            {/* Scrollable messages */}
             <div style={{
               flex: 1, overflowY: "auto", padding: "20px",
-              paddingRight: showAvatar ? "188px" : "20px",
+              // Only add right padding when avatar is visible AND file zone is closed
+              paddingRight: avatarVisible && !showFileZone ? "188px" : "20px",
+              transition: "padding-right 0.25s ease",
             }}>
               {messages.length === 0 ? (
                 <EmptyState onPrompt={(p) => { setInput(p); inputRef.current?.focus(); }} />
@@ -446,15 +788,21 @@ export default function App() {
               <div ref={messagesEndRef} />
             </div>
 
-            {showAvatar && (
+            {/* Avatar — floats over message area, ABOVE file zone level */}
+            {avatarVisible && (
               <div style={{
-                position: "absolute", right: 16, bottom: 16,
-                width: 156, zIndex: 10,
+                position: "absolute",
+                // When file zone is open, push avatar up so it sits above the file zone.
+                // File zone is approximately 160px tall. We add an extra 8px margin.
+                bottom: showFileZone ? 168 : 16,
+                right: 16,
+                width: 156, zIndex: 20,
                 display: "flex", flexDirection: "column", alignItems: "center",
                 padding: "14px 10px 10px",
-                background: "rgba(8,12,20,0.88)", backdropFilter: "blur(20px)",
+                background: "rgba(8,12,20,0.92)", backdropFilter: "blur(20px)",
                 borderRadius: 18, border: "1px solid rgba(0,245,160,0.1)",
                 boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                transition: "bottom 0.3s cubic-bezier(0.4,0,0.2,1)",
               }}>
                 <AIAvatar isSpeaking={isSpeaking} isThinking={isThinking} />
                 <div style={{ marginTop: 10, fontSize: 8, color: "#1a2030", textAlign: "center", letterSpacing: "0.1em" }}>
@@ -477,7 +825,7 @@ export default function App() {
             </div>
           )}
 
-          {/* File upload zone (expandable) */}
+          {/* File upload zone */}
           {showFileZone && (
             <FileUploadZone
               onFiles={handleFilesAdded}
@@ -590,6 +938,7 @@ export default function App() {
   );
 }
 
+// ── Empty State ───────────────────────────────────────────────────────────────
 function EmptyState({ onPrompt }) {
   const prompts = [
     "Explain quantum entanglement", "Write a Python web scraper",
@@ -626,6 +975,7 @@ function EmptyState({ onPrompt }) {
   );
 }
 
+// ── File Chip ─────────────────────────────────────────────────────────────────
 function FileChip({ file, onRemove }) {
   const icons = { pdf: "📋", image: "🖼️", doc: "📄", csv: "📊", text: "📝", code: "💻" };
   const getIcon = (f) => {
