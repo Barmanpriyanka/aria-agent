@@ -310,6 +310,9 @@ function ChatApp({ currentUser, onLogout }) {
   const renameSession = (id, title) => updateSession(id, { title });
 
   const [input, setInput] = useState("");
+  // FIX: ref to always hold the latest input value, avoiding stale closures
+  const inputValueRef = useRef("");
+
   const [loading, setLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [streaming, setStreaming] = useState(true);
@@ -317,7 +320,6 @@ function ChatApp({ currentUser, onLogout }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  // ✅ FIX: Avatar always visible by default on all devices
   const [showAvatar, setShowAvatar] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
@@ -325,7 +327,6 @@ function ChatApp({ currentUser, onLogout }) {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // ✅ FIX: Only control sidebar on breakpoint change, NOT showAvatar
   useEffect(() => {
     if (!isMobile && !isTablet) {
       setSidebarOpen(true);
@@ -400,9 +401,9 @@ function ChatApp({ currentUser, onLogout }) {
   const removeFile = (idx) => setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
 
   // ── Send Message ──────────────────────────────────────────────────────────
-  // ✅ FIX: Use `input` state directly instead of inputValueRef to avoid stale closure
+  // FIX: Read from inputValueRef instead of input state to avoid stale closure
   const sendMessage = useCallback(async (overrideText) => {
-    const text = (overrideText !== undefined ? overrideText : input).trim();
+    const text = (overrideText !== undefined ? overrideText : inputValueRef.current).trim();
     if (!text || loading) return;
     stopSpeaking();
 
@@ -430,7 +431,9 @@ function ChatApp({ currentUser, onLogout }) {
       title: prev.title === "New Chat" ? text.slice(0, 40) : prev.title,
     }));
 
+    // FIX: Clear both the state and the ref
     setInput("");
+    inputValueRef.current = "";
     setAttachedFiles([]);
     setLoading(true);
     setStatus("connecting");
@@ -528,8 +531,8 @@ function ChatApp({ currentUser, onLogout }) {
     }
     setLoading(false);
     if (!isMobile) inputRef.current?.focus();
-  // ✅ FIX: `input` is now a proper dependency
-  }, [input, loading, messages, activeSessionId, selectedModel, streaming, voiceEnabled, speak, attachedFiles, createSession, updateSession, isMobile]);
+  // FIX: removed `input` from deps — we use inputValueRef.current instead
+  }, [loading, messages, activeSessionId, selectedModel, streaming, voiceEnabled, speak, attachedFiles, createSession, updateSession, isMobile]);
 
   // ── STT ───────────────────────────────────────────────────────────────────
   const startListening = useCallback(() => {
@@ -547,10 +550,10 @@ function ChatApp({ currentUser, onLogout }) {
         else interim += e.results[i][0].transcript;
       }
       setInput(finalTranscript + interim);
+      inputValueRef.current = finalTranscript + interim;
     };
     recognition.onend = () => {
       setIsListening(false);
-      // ✅ FIX: use finalTranscript directly captured in this closure
       if (finalTranscript.trim()) sendMessage(finalTranscript.trim());
     };
     recognition.onerror = () => setIsListening(false);
@@ -570,9 +573,6 @@ function ChatApp({ currentUser, onLogout }) {
   const sidebarIsOverlay = isMobile || isTablet;
   const sidebarW = (!sidebarIsOverlay && sidebarOpen) ? 260 : 0;
 
-  // ✅ FIX: Avatar always visible on all screen sizes
-  // On desktop: floats over messages on the right
-  // On mobile/tablet: small, fixed to top-right corner
   const avatarVisible = showAvatar;
 
   return (
@@ -889,7 +889,6 @@ function ChatApp({ currentUser, onLogout }) {
             <div style={{
               flex: 1, overflowY: "auto",
               padding: isMobile ? "12px 12px 8px" : "20px",
-              // ✅ FIX: Only reserve right padding for avatar on desktop (not mobile)
               paddingRight: (avatarVisible && !isMobile && !isTablet) ? "188px" : (isMobile ? "12px" : "20px"),
               transition: "padding-right 0.25s ease",
               WebkitOverflowScrolling: "touch",
@@ -897,7 +896,11 @@ function ChatApp({ currentUser, onLogout }) {
             }}>
               {messages.length === 0 ? (
                 <EmptyState
-                  onPrompt={(p) => { setInput(p); if (!isMobile) inputRef.current?.focus(); }}
+                  onPrompt={(p) => {
+                    setInput(p);
+                    inputValueRef.current = p;
+                    if (!isMobile) inputRef.current?.focus();
+                  }}
                   isMobile={isMobile}
                 />
               ) : (
@@ -907,14 +910,10 @@ function ChatApp({ currentUser, onLogout }) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* ✅ FIX: Avatar renders on ALL screen sizes
-                Desktop: floats bottom-right over messages
-                Mobile/Tablet: small, pinned top-right corner of message area */}
+            {/* Avatar */}
             {avatarVisible && (
               <div style={{
                 position: "absolute",
-                // Mobile: top-right corner, small
-                // Desktop: bottom-right, full size
                 top: isMobile ? 8 : (isTablet ? 10 : "auto"),
                 bottom: (!isMobile && !isTablet) ? (showFileZone ? 168 : 16) : "auto",
                 right: isMobile ? 8 : 16,
@@ -1031,7 +1030,11 @@ function ChatApp({ currentUser, onLogout }) {
                 <textarea
                   ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    // FIX: keep ref in sync so sendMessage always reads latest value
+                    inputValueRef.current = e.target.value;
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder={isListening ? "Listening… speak now" : "Message ARIA…"}
                   rows={1}
@@ -1056,9 +1059,9 @@ function ChatApp({ currentUser, onLogout }) {
                 />
               </div>
 
-              {/* ✅ FIX: Send / Stop button — disabled only when truly nothing to send */}
+              {/* Send / Stop button */}
               <button
-                onClick={loading ? stopGeneration : sendMessage}
+                onClick={loading ? stopGeneration : () => sendMessage()}
                 disabled={!loading && !input.trim() && attachedFiles.length === 0}
                 style={{
                   width: 44, height: 44, borderRadius: 11, fontSize: 20, flexShrink: 0,
@@ -1079,7 +1082,6 @@ function ChatApp({ currentUser, onLogout }) {
                     ? "0 4px 18px rgba(0,245,160,0.3)"
                     : "none",
                   touchAction: "manipulation",
-                  // ✅ Never pointer-events none, always tappable when active
                   pointerEvents: (!loading && !input.trim() && attachedFiles.length === 0) ? "none" : "auto",
                 }}>
                 {loading ? "■" : "↑"}
