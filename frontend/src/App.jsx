@@ -57,6 +57,25 @@ function useBreakpoint() {
   return bp;
 }
 
+// ── Visual viewport hook (tracks keyboard height on mobile) ──────────────────
+function useVisualViewportHeight() {
+  const [height, setHeight] = useState(() =>
+    window.visualViewport ? window.visualViewport.height : window.innerHeight
+  );
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const handler = () => setHeight(vv.height);
+    vv.addEventListener("resize", handler);
+    vv.addEventListener("scroll", handler);
+    return () => {
+      vv.removeEventListener("resize", handler);
+      vv.removeEventListener("scroll", handler);
+    };
+  }, []);
+  return height;
+}
+
 // ── Auth Screen ───────────────────────────────────────────────────────────────
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState("login");
@@ -92,48 +111,51 @@ function AuthScreen({ onAuth }) {
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#080c14", display: "flex",
+      minHeight: "100vh",
+      minHeight: "-webkit-fill-available",
+      background: "#080c14", display: "flex",
       alignItems: "center", justifyContent: "center",
       fontFamily: "'IBM Plex Mono', monospace", padding: "16px",
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+        html,body{height:100%;height:-webkit-fill-available}
         *{box-sizing:border-box;margin:0;padding:0}
         @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         .auth-input{
-          width:100%;padding:11px 14px;border-radius:10px;font-size:14px;
+          width:100%;padding:12px 14px;border-radius:10px;font-size:16px;
           font-family:'IBM Plex Mono',monospace;
           background:rgba(255,255,255,0.04);border:1px solid rgba(0,245,160,0.15);
           color:#e8eaf6;outline:none;transition:border-color 0.2s,background 0.2s;
+          -webkit-appearance:none;
         }
         .auth-input::placeholder{color:#2d3748}
         .auth-input:focus{border-color:rgba(0,245,160,0.45);background:rgba(0,245,160,0.03)}
         .auth-btn{
-          width:100%;padding:13px;border-radius:10px;font-size:13px;font-weight:700;
+          width:100%;padding:14px;border-radius:10px;font-size:13px;font-weight:700;
           font-family:'IBM Plex Mono',monospace;letter-spacing:0.1em;
           background:linear-gradient(135deg,#00f5a0,#00d9f5);color:#000;
           border:none;cursor:pointer;transition:opacity 0.2s,transform 0.1s;
           box-shadow:0 4px 20px rgba(0,245,160,0.25);
+          -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+          min-height:48px;
         }
-        .auth-btn:hover{opacity:0.9}
         .auth-btn:active{transform:scale(0.98)}
         .auth-link{background:none;border:none;color:rgba(0,245,160,0.5);
-          font-size:12px;font-family:'IBM Plex Mono',monospace;
-          cursor:pointer;text-decoration:underline;letter-spacing:0.05em}
+          font-size:13px;font-family:'IBM Plex Mono',monospace;
+          cursor:pointer;text-decoration:underline;letter-spacing:0.05em;
+          -webkit-tap-highlight-color:transparent;touch-action:manipulation;}
         .auth-link:hover{color:#00f5a0}
       `}</style>
 
-      <div style={{
-        animation: "fadeUp 0.5s ease both",
-        width: "100%", maxWidth: 400,
-      }}>
+      <div style={{ animation: "fadeUp 0.5s ease both", width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <div style={{
             width: 56, height: 56, borderRadius: 16, margin: "0 auto 14px",
             background: "linear-gradient(135deg,#00f5a0,#00d9f5)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 26, boxShadow: "0 0 30px rgba(0,245,160,0.3)",
+            fontSize: 26,
           }}>◈</div>
           <div style={{
             fontSize: 26, fontWeight: 700, fontFamily: "'Space Mono',monospace",
@@ -158,13 +180,15 @@ function AuthScreen({ onAuth }) {
             {["login", "register"].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(""); setSuccess(""); }}
                 style={{
-                  flex: 1, padding: "8px 0", borderRadius: 7, border: "none",
+                  flex: 1, padding: "10px 0", borderRadius: 7, border: "none",
                   fontFamily: "'IBM Plex Mono',monospace", fontSize: 11,
                   letterSpacing: "0.1em", fontWeight: 600, cursor: "pointer",
                   transition: "all 0.2s",
                   background: mode === m ? "rgba(0,245,160,0.12)" : "transparent",
                   color: mode === m ? "#00f5a0" : "#2d3748",
                   border: mode === m ? "1px solid rgba(0,245,160,0.25)" : "1px solid transparent",
+                  WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
+                  minHeight: 40,
                 }}>
                 {m === "login" ? "SIGN IN" : "REGISTER"}
               </button>
@@ -175,7 +199,8 @@ function AuthScreen({ onAuth }) {
             <div>
               <label style={{ fontSize: 10, color: "#2d3748", letterSpacing: "0.12em", display: "block", marginBottom: 5 }}>USERNAME</label>
               <input className="auth-input" type="text" placeholder="your_username"
-                value={username} onChange={e => setUsername(e.target.value)} onKeyDown={handleKey} autoComplete="username" />
+                value={username} onChange={e => setUsername(e.target.value)} onKeyDown={handleKey}
+                autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck="false" />
             </div>
             <div>
               <label style={{ fontSize: 10, color: "#2d3748", letterSpacing: "0.12em", display: "block", marginBottom: 5 }}>PASSWORD</label>
@@ -183,14 +208,22 @@ function AuthScreen({ onAuth }) {
                 value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKey}
                 autoComplete={mode === "register" ? "new-password" : "current-password"} />
             </div>
-            {error && <div style={{ fontSize: 12, color: "#f56565", padding: "8px 12px", background: "rgba(245,101,101,0.08)", borderRadius: 8, border: "1px solid rgba(245,101,101,0.2)" }}>⚠ {error}</div>}
-            {success && <div style={{ fontSize: 12, color: "#00f5a0", padding: "8px 12px", background: "rgba(0,245,160,0.08)", borderRadius: 8, border: "1px solid rgba(0,245,160,0.2)" }}>✓ {success}</div>}
+            {error && (
+              <div style={{ fontSize: 12, color: "#f56565", padding: "8px 12px", background: "rgba(245,101,101,0.08)", borderRadius: 8, border: "1px solid rgba(245,101,101,0.2)" }}>
+                ⚠ {error}
+              </div>
+            )}
+            {success && (
+              <div style={{ fontSize: 12, color: "#00f5a0", padding: "8px 12px", background: "rgba(0,245,160,0.08)", borderRadius: 8, border: "1px solid rgba(0,245,160,0.2)" }}>
+                ✓ {success}
+              </div>
+            )}
             <button className="auth-btn" onClick={handleSubmit} style={{ marginTop: 4 }}>
               {mode === "login" ? "SIGN IN →" : "CREATE ACCOUNT →"}
             </button>
           </div>
 
-          <div style={{ marginTop: 16, textAlign: "center", fontSize: 11, color: "#2d3748" }}>
+          <div style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: "#2d3748" }}>
             {mode === "login"
               ? <><span>No account? </span><button className="auth-link" onClick={() => { setMode("register"); setError(""); }}>Register here</button></>
               : <><span>Already have one? </span><button className="auth-link" onClick={() => { setMode("login"); setError(""); }}>Sign in</button></>}
@@ -234,6 +267,7 @@ function ChatApp({ currentUser, onLogout }) {
   const bp = useBreakpoint();
   const isMobile = bp === "mobile";
   const isTablet = bp === "tablet";
+  const vpHeight = useVisualViewportHeight();
 
   const [sessions, setSessions] = useState(() => loadUserChats(currentUser));
   const [activeSessionId, setActiveSessionId] = useState(() => {
@@ -259,7 +293,10 @@ function ChatApp({ currentUser, onLogout }) {
   };
 
   const updateSession = (id, updater) => {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, ...(typeof updater === "function" ? updater(s) : updater) } : s));
+    setSessions(prev => prev.map(s => s.id === id
+      ? { ...s, ...(typeof updater === "function" ? updater(s) : updater) }
+      : s
+    ));
   };
 
   const deleteSession = (id) => {
@@ -280,20 +317,20 @@ function ChatApp({ currentUser, onLogout }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  // On mobile/tablet, avatar is hidden by default to save space
-  const [showAvatar, setShowAvatar] = useState(!isMobile && !isTablet);
-  // On mobile, sidebar is a drawer (closed by default); on desktop it pushes layout
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile && !isTablet);
+  // ✅ FIX: Avatar always visible by default on all devices
+  const [showAvatar, setShowAvatar] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showFileZone, setShowFileZone] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showModelPicker, setShowModelPicker] = useState(false);
 
-  // Update sidebar/avatar defaults when breakpoint changes
+  // ✅ FIX: Only control sidebar on breakpoint change, NOT showAvatar
   useEffect(() => {
-    if (isMobile || isTablet) {
-      setShowAvatar(false);
+    if (!isMobile && !isTablet) {
+      setSidebarOpen(true);
+    } else {
+      setSidebarOpen(false);
     }
   }, [isMobile, isTablet]);
 
@@ -303,19 +340,20 @@ function ChatApp({ currentUser, onLogout }) {
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
-  const inputValueRef = useRef(input);
 
-  useEffect(() => { inputValueRef.current = input; }, [input]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   useEffect(() => {
     if (!showUserMenu) return;
     const handler = () => setShowUserMenu(false);
     document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("click", handler);
+      document.removeEventListener("touchstart", handler);
+    };
   }, [showUserMenu]);
 
-  // Close sidebar on overlay click (mobile/tablet)
   const handleOverlayClick = () => {
     if (isMobile || isTablet) setSidebarOpen(false);
   };
@@ -362,10 +400,13 @@ function ChatApp({ currentUser, onLogout }) {
   const removeFile = (idx) => setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
 
   // ── Send Message ──────────────────────────────────────────────────────────
+  // ✅ FIX: Use `input` state directly instead of inputValueRef to avoid stale closure
   const sendMessage = useCallback(async (overrideText) => {
-    const text = (overrideText ?? inputValueRef.current).trim();
+    const text = (overrideText !== undefined ? overrideText : input).trim();
     if (!text || loading) return;
     stopSpeaking();
+
+    if (isMobile) inputRef.current?.blur();
 
     let fileContext = "";
     if (attachedFiles.length > 0) {
@@ -375,7 +416,10 @@ function ChatApp({ currentUser, onLogout }) {
     }
 
     const userContent = text + fileContext;
-    const userMsg = { role: "user", content: text, fileRefs: attachedFiles.map(f => ({ name: f.name, type: f.type, size: f.size, preview: f.preview })) };
+    const userMsg = {
+      role: "user", content: text,
+      fileRefs: attachedFiles.map(f => ({ name: f.name, type: f.type, size: f.size, preview: f.preview }))
+    };
 
     let sessionId = activeSessionId;
     if (!sessionId) sessionId = createSession(text.slice(0, 50));
@@ -386,9 +430,10 @@ function ChatApp({ currentUser, onLogout }) {
       title: prev.title === "New Chat" ? text.slice(0, 40) : prev.title,
     }));
 
-    setInput(""); inputValueRef.current = "";
+    setInput("");
     setAttachedFiles([]);
-    setLoading(true); setStatus("connecting");
+    setLoading(true);
+    setStatus("connecting");
 
     const historyForApi = [...messages, userMsg].map(({ role, content, fileRefs }) => ({
       role,
@@ -482,8 +527,9 @@ function ChatApp({ currentUser, onLogout }) {
       }
     }
     setLoading(false);
-    inputRef.current?.focus();
-  }, [loading, messages, activeSessionId, selectedModel, streaming, voiceEnabled, speak, attachedFiles, createSession, updateSession]);
+    if (!isMobile) inputRef.current?.focus();
+  // ✅ FIX: `input` is now a proper dependency
+  }, [input, loading, messages, activeSessionId, selectedModel, streaming, voiceEnabled, speak, attachedFiles, createSession, updateSession, isMobile]);
 
   // ── STT ───────────────────────────────────────────────────────────────────
   const startListening = useCallback(() => {
@@ -501,12 +547,11 @@ function ChatApp({ currentUser, onLogout }) {
         else interim += e.results[i][0].transcript;
       }
       setInput(finalTranscript + interim);
-      inputValueRef.current = finalTranscript + interim;
     };
     recognition.onend = () => {
       setIsListening(false);
-      const toSend = finalTranscript.trim() || inputValueRef.current.trim();
-      if (toSend) sendMessage(toSend);
+      // ✅ FIX: use finalTranscript directly captured in this closure
+      if (finalTranscript.trim()) sendMessage(finalTranscript.trim());
     };
     recognition.onerror = () => setIsListening(false);
     recognitionRef.current = recognition;
@@ -514,27 +559,34 @@ function ChatApp({ currentUser, onLogout }) {
   }, [sendMessage]);
 
   const stopListening = () => recognitionRef.current?.stop();
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
+
   const stopGeneration = () => { abortRef.current?.abort(); setLoading(false); setStatus("idle"); };
 
   const isThinking = loading && !isSpeaking;
-  // On desktop, sidebar pushes layout. On mobile/tablet, sidebar is an overlay.
   const sidebarIsOverlay = isMobile || isTablet;
   const sidebarW = (!sidebarIsOverlay && sidebarOpen) ? 260 : 0;
-  const avatarVisible = showAvatar && !isMobile;
+
+  // ✅ FIX: Avatar always visible on all screen sizes
+  // On desktop: floats over messages on the right
+  // On mobile/tablet: small, fixed to top-right corner
+  const avatarVisible = showAvatar;
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#080c14", color: "#e8eaf6",
+      height: isMobile ? `${vpHeight}px` : "100vh",
+      maxHeight: isMobile ? `${vpHeight}px` : "100vh",
+      background: "#080c14", color: "#e8eaf6",
       fontFamily: "'IBM Plex Mono', monospace", display: "flex", flexDirection: "column",
-      overflow: "hidden",
+      overflow: "hidden", position: "fixed", inset: 0,
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+        html,body{height:100%;height:-webkit-fill-available;overflow:hidden;overscroll-behavior:none}
         *{box-sizing:border-box;margin:0;padding:0}
-        body{background:#080c14;overflow:hidden}
         ::-webkit-scrollbar{width:3px}
         ::-webkit-scrollbar-track{background:transparent}
         ::-webkit-scrollbar-thumb{background:rgba(0,245,160,0.2);border-radius:2px}
@@ -543,51 +595,52 @@ function ChatApp({ currentUser, onLogout }) {
         @keyframes fadeSlideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,101,101,0.5)}50%{box-shadow:0 0 0 10px rgba(245,101,101,0)}}
-        @keyframes slideInLeft{from{opacity:0;transform:translateX(-100%)}to{opacity:1;transform:translateX(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeInUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         textarea:focus{outline:none}
-        button{cursor:pointer;border:none}
+        button{cursor:pointer;border:none;-webkit-tap-highlight-color:transparent;}
         .file-chip:hover .file-remove{opacity:1!important}
         .user-menu-item:hover{background:rgba(0,245,160,0.06)!important;color:#00f5a0!important}
         .ctrl-btn{
           display:flex;align-items:center;justify-content:center;
           border-radius:9px;transition:all 0.2s;
           background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);
-          color:#2d3748;cursor:pointer;
+          color:#2d3748;cursor:pointer;touch-action:manipulation;
         }
         .ctrl-btn:hover{color:#00f5a0;border-color:rgba(0,245,160,0.3)}
-        /* Mobile safe area support */
-        @supports(padding-bottom: env(safe-area-inset-bottom)){
-          .input-area{padding-bottom: calc(12px + env(safe-area-inset-bottom))!important}
+        .ctrl-btn:active{transform:scale(0.93)}
+        * { -webkit-text-size-adjust: 100%; }
+        .models-scroll::-webkit-scrollbar{display:none}
+        .input-area-wrap{
+          padding-bottom: max(14px, env(safe-area-inset-bottom));
         }
       `}</style>
 
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden", position: "relative" }}>
+      <div style={{ display: "flex", height: "100%", overflow: "hidden", position: "relative" }}>
 
         {/* Sidebar overlay backdrop (mobile/tablet) */}
         {sidebarIsOverlay && sidebarOpen && (
           <div
             onClick={handleOverlayClick}
+            onTouchStart={handleOverlayClick}
             style={{
               position: "fixed", inset: 0, zIndex: 40,
-              background: "rgba(0,0,0,0.6)", animation: "fadeIn 0.2s ease",
+              background: "rgba(0,0,0,0.65)", animation: "fadeIn 0.2s ease",
             }}
           />
         )}
 
         {/* Sidebar */}
         <div style={{
-          // On mobile/tablet: fixed overlay drawer
-          // On desktop: static sidebar that pushes content
           position: sidebarIsOverlay ? "fixed" : "static",
           top: 0, left: 0, bottom: 0,
-          width: sidebarIsOverlay ? (sidebarOpen ? Math.min(280, window.innerWidth * 0.8) : 0) : sidebarW,
+          width: sidebarIsOverlay
+            ? (sidebarOpen ? "min(280px, 82vw)" : "0px")
+            : `${sidebarW}px`,
           flexShrink: 0, overflow: "hidden",
-          transition: "width 0.28s cubic-bezier(0.4,0,0.2,1)",
           borderRight: sidebarOpen ? "1px solid rgba(0,245,160,0.08)" : "none",
           zIndex: sidebarIsOverlay ? 50 : 1,
-          // On overlay mode, animate from left
           transform: sidebarIsOverlay
             ? (sidebarOpen ? "translateX(0)" : "translateX(-100%)")
             : "none",
@@ -612,29 +665,29 @@ function ChatApp({ currentUser, onLogout }) {
           {/* Header */}
           <header style={{
             borderBottom: "1px solid rgba(0,245,160,0.08)",
-            padding: isMobile ? "10px 12px" : "12px 20px",
+            padding: isMobile ? "8px 12px" : "12px 20px",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             background: "rgba(8,12,20,0.97)", backdropFilter: "blur(20px)",
             flexShrink: 0, gap: 8,
+            paddingTop: isMobile ? "max(8px, env(safe-area-inset-top))" : "12px",
           }}>
             {/* Left: toggle + logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, minWidth: 0, flex: 1 }}>
               <button
                 className="ctrl-btn"
                 onClick={() => setSidebarOpen(s => !s)}
-                style={{ width: isMobile ? 36 : 34, height: isMobile ? 36 : 34, fontSize: 16, flexShrink: 0 }}
+                style={{ width: 40, height: 40, fontSize: 17, flexShrink: 0 }}
                 title="Toggle sidebar"
               >☰</button>
 
               <div style={{
-                width: isMobile ? 30 : 36, height: isMobile ? 30 : 36, borderRadius: "10px",
+                width: isMobile ? 30 : 34, height: isMobile ? 30 : 34, borderRadius: "10px",
                 background: "linear-gradient(135deg, #00f5a0, #00d9f5)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: isMobile ? 15 : 18, boxShadow: "0 0 16px rgba(0,245,160,0.35)",
-                flexShrink: 0,
+                fontSize: isMobile ? 15 : 17, flexShrink: 0,
               }}>◈</div>
 
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
                   fontSize: isMobile ? 14 : 16, fontWeight: 700,
                   background: "linear-gradient(90deg, #00f5a0, #00d9f5)",
@@ -642,7 +695,11 @@ function ChatApp({ currentUser, onLogout }) {
                   fontFamily: "'Space Mono', monospace", letterSpacing: "0.05em",
                 }}>ARIA</div>
                 {!isMobile && (
-                  <div style={{ fontSize: 9, color: "#2d3748", letterSpacing: "0.12em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
+                  <div style={{
+                    fontSize: 9, color: "#2d3748", letterSpacing: "0.12em",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    maxWidth: 200,
+                  }}>
                     {activeSession?.title || "ADVANCED REASONING INTELLIGENCE AGENT"}
                   </div>
                 )}
@@ -651,7 +708,7 @@ function ChatApp({ currentUser, onLogout }) {
 
             {/* Right: controls */}
             <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, flexShrink: 0 }}>
-              {/* Status dot — always show */}
+              {/* Status dot */}
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{
                   width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
@@ -670,48 +727,50 @@ function ChatApp({ currentUser, onLogout }) {
                 onClick={() => { setVoiceEnabled(v => !v); if (isSpeaking) stopSpeaking(); }}
                 title={voiceEnabled ? "Mute voice" : "Enable voice"}
                 style={{
-                  padding: isMobile ? "6px 8px" : "4px 10px",
-                  borderRadius: 6, fontSize: isMobile ? 14 : 10,
+                  padding: isMobile ? "7px 9px" : "4px 10px",
+                  borderRadius: 6, fontSize: isMobile ? 15 : 10,
                   fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.07em",
                   background: voiceEnabled ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.03)",
                   color: voiceEnabled ? "#00f5a0" : "#2d3748",
                   border: voiceEnabled ? "1px solid rgba(0,245,160,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                  transition: "all 0.2s",
+                  transition: "all 0.2s", touchAction: "manipulation",
+                  minHeight: 36, minWidth: 36,
                 }}>
                 {voiceEnabled ? (isMobile ? "🔊" : "🔊 VOICE") : (isMobile ? "🔇" : "🔇 VOICE")}
               </button>
 
-              {/* Avatar toggle — hide on mobile */}
+              {/* Avatar + Stream toggles — desktop only */}
               {!isMobile && (
-                <button onClick={() => setShowAvatar(s => !s)} style={{
-                  padding: "4px 10px", borderRadius: 6, fontSize: 10,
-                  fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.07em",
-                  background: showAvatar ? "rgba(0,217,245,0.1)" : "rgba(255,255,255,0.03)",
-                  color: showAvatar ? "#00d9f5" : "#2d3748",
-                  border: showAvatar ? "1px solid rgba(0,217,245,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                  transition: "all 0.2s",
-                }}>AVATAR</button>
-              )}
+                <>
+                  <button onClick={() => setShowAvatar(s => !s)} style={{
+                    padding: "4px 10px", borderRadius: 6, fontSize: 10,
+                    fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.07em",
+                    background: showAvatar ? "rgba(0,217,245,0.1)" : "rgba(255,255,255,0.03)",
+                    color: showAvatar ? "#00d9f5" : "#2d3748",
+                    border: showAvatar ? "1px solid rgba(0,217,245,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                    transition: "all 0.2s",
+                  }}>AVATAR</button>
 
-              {/* Stream toggle — hide on mobile */}
-              {!isMobile && (
-                <button onClick={() => setStreaming(s => !s)} style={{
-                  padding: "4px 10px", borderRadius: 6, fontSize: 10,
-                  fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.07em",
-                  background: streaming ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.03)",
-                  color: streaming ? "#00f5a0" : "#2d3748",
-                  border: streaming ? "1px solid rgba(0,245,160,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                  transition: "all 0.2s",
-                }}>{streaming ? "STREAM ●" : "STREAM ○"}</button>
+                  <button onClick={() => setStreaming(s => !s)} style={{
+                    padding: "4px 10px", borderRadius: 6, fontSize: 10,
+                    fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.07em",
+                    background: streaming ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.03)",
+                    color: streaming ? "#00f5a0" : "#2d3748",
+                    border: streaming ? "1px solid rgba(0,245,160,0.25)" : "1px solid rgba(255,255,255,0.06)",
+                    transition: "all 0.2s",
+                  }}>{streaming ? "STREAM ●" : "STREAM ○"}</button>
+                </>
               )}
 
               {/* Stop speaking */}
               {isSpeaking && (
                 <button onClick={stopSpeaking} style={{
-                  padding: isMobile ? "6px 8px" : "4px 10px", borderRadius: 6, fontSize: isMobile ? 12 : 10,
+                  padding: isMobile ? "7px 9px" : "4px 10px", borderRadius: 6,
+                  fontSize: isMobile ? 13 : 10,
                   fontFamily: "'IBM Plex Mono', monospace",
                   background: "rgba(245,101,101,0.1)", color: "#f56565",
                   border: "1px solid rgba(245,101,101,0.25)", animation: "pulse 1s infinite",
+                  touchAction: "manipulation",
                 }}>■ {!isMobile && "STOP"}</button>
               )}
 
@@ -721,17 +780,18 @@ function ChatApp({ currentUser, onLogout }) {
                   onClick={(e) => { e.stopPropagation(); setShowUserMenu(m => !m); }}
                   style={{
                     display: "flex", alignItems: "center", gap: isMobile ? 0 : 7,
-                    padding: isMobile ? "5px" : "5px 10px 5px 7px", borderRadius: 8,
+                    padding: isMobile ? "6px" : "5px 10px 5px 7px", borderRadius: 8,
                     background: showUserMenu ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.03)",
                     border: showUserMenu ? "1px solid rgba(0,245,160,0.3)" : "1px solid rgba(255,255,255,0.07)",
-                    transition: "all 0.2s",
+                    transition: "all 0.2s", touchAction: "manipulation",
+                    minHeight: 36, minWidth: 36,
                   }}
                 >
                   <div style={{
-                    width: 24, height: 24, borderRadius: "50%",
+                    width: 26, height: 26, borderRadius: "50%",
                     background: "linear-gradient(135deg,#00f5a0,#00d9f5)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 10, fontWeight: 700, color: "#000",
+                    fontSize: 11, fontWeight: 700, color: "#000",
                   }}>
                     {currentUser[0].toUpperCase()}
                   </div>
@@ -743,26 +803,35 @@ function ChatApp({ currentUser, onLogout }) {
                 </button>
 
                 {showUserMenu && (
-                  <div style={{
-                    position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 100,
-                    background: "#0d1420", border: "1px solid rgba(0,245,160,0.15)",
-                    borderRadius: 10, padding: "4px",
-                    boxShadow: "0 10px 40px rgba(0,0,0,0.7)",
-                    minWidth: 160, animation: "fadeInDown 0.15s ease",
-                  }} onClick={e => e.stopPropagation()}>
+                  <div
+                    onClick={e => e.stopPropagation()}
+                    onTouchStart={e => e.stopPropagation()}
+                    style={{
+                      position: "absolute", right: 0, zIndex: 100,
+                      bottom: isMobile ? "calc(100% + 6px)" : "auto",
+                      top: isMobile ? "auto" : "calc(100% + 6px)",
+                      background: "#0d1420", border: "1px solid rgba(0,245,160,0.15)",
+                      borderRadius: 10, padding: "4px",
+                      boxShadow: "0 10px 40px rgba(0,0,0,0.7)",
+                      minWidth: 170,
+                      animation: isMobile ? "fadeInUp 0.15s ease" : "fadeInDown 0.15s ease",
+                    }}>
                     <div style={{ padding: "8px 12px 6px", borderBottom: "1px solid rgba(255,255,255,0.04)", marginBottom: 4 }}>
                       <div style={{ fontSize: 11, color: "#00f5a0", fontWeight: 600 }}>{currentUser}</div>
                       <div style={{ fontSize: 9, color: "#2d3748", letterSpacing: "0.1em", marginTop: 1 }}>LOGGED IN</div>
                     </div>
+                    {/* Stream + Avatar controls in user menu on mobile */}
                     {isMobile && (
                       <>
-                        <button className="user-menu-item" onClick={() => { setShowUserMenu(false); setStreaming(s => !s); }}
-                          style={{ width: "100%", padding: "8px 12px", borderRadius: 7, background: "transparent", border: "none", color: "#4a5568", fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", textAlign: "left", letterSpacing: "0.07em", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 13 }}>⚡</span> {streaming ? "STREAM ON" : "STREAM OFF"}
+                        <button className="user-menu-item"
+                          onClick={() => { setShowUserMenu(false); setStreaming(s => !s); }}
+                          style={{ width: "100%", padding: "10px 12px", borderRadius: 7, background: "transparent", border: "none", color: "#4a5568", fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", textAlign: "left", letterSpacing: "0.07em", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}>
+                          <span style={{ fontSize: 14 }}>⚡</span> {streaming ? "STREAM ON" : "STREAM OFF"}
                         </button>
-                        <button className="user-menu-item" onClick={() => { setShowUserMenu(false); setShowAvatar(s => !s); }}
-                          style={{ width: "100%", padding: "8px 12px", borderRadius: 7, background: "transparent", border: "none", color: "#4a5568", fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", textAlign: "left", letterSpacing: "0.07em", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 13 }}>◈</span> {showAvatar ? "HIDE AVATAR" : "SHOW AVATAR"}
+                        <button className="user-menu-item"
+                          onClick={() => { setShowUserMenu(false); setShowAvatar(s => !s); }}
+                          style={{ width: "100%", padding: "10px 12px", borderRadius: 7, background: "transparent", border: "none", color: "#4a5568", fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", textAlign: "left", letterSpacing: "0.07em", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}>
+                          <span style={{ fontSize: 14 }}>◈</span> {showAvatar ? "HIDE AVATAR" : "SHOW AVATAR"}
                         </button>
                       </>
                     )}
@@ -772,9 +841,9 @@ function ChatApp({ currentUser, onLogout }) {
                         setShowUserMenu(false);
                         if (window.confirm("Sign out of ARIA?")) { stopSpeaking(); onLogout(); }
                       }}
-                      style={{ width: "100%", padding: "8px 12px", borderRadius: 7, background: "transparent", border: "none", color: "#4a5568", fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", textAlign: "left", letterSpacing: "0.07em", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8 }}
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 7, background: "transparent", border: "none", color: "#4a5568", fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", textAlign: "left", letterSpacing: "0.07em", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}
                     >
-                      <span style={{ fontSize: 13 }}>⎋</span> SIGN OUT
+                      <span style={{ fontSize: 14 }}>⎋</span> SIGN OUT
                     </button>
                   </div>
                 )}
@@ -782,25 +851,26 @@ function ChatApp({ currentUser, onLogout }) {
             </div>
           </header>
 
-          {/* Model selector — scrollable row, compact on mobile */}
-          <div style={{
+          {/* Model selector */}
+          <div className="models-scroll" style={{
             padding: isMobile ? "6px 12px" : "8px 16px",
             borderBottom: "1px solid rgba(255,255,255,0.03)",
             display: "flex", gap: 6, overflowX: "auto", flexShrink: 0,
             background: "rgba(8,12,20,0.9)",
-            // Hide scrollbar but keep scroll functionality
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
+            scrollbarWidth: "none", msOverflowStyle: "none",
+            WebkitOverflowScrolling: "touch",
           }}>
             {MODELS.map((m) => (
               <button key={m.id} onClick={() => setSelectedModel(m.id)} style={{
-                padding: isMobile ? "5px 10px" : "5px 12px",
-                borderRadius: 7, fontSize: isMobile ? 9 : 10,
+                padding: isMobile ? "6px 10px" : "5px 12px",
+                borderRadius: 7, fontSize: 10,
                 fontFamily: "'IBM Plex Mono', monospace", whiteSpace: "nowrap",
-                display: "flex", alignItems: "center", gap: 5, transition: "all 0.2s", flexShrink: 0,
+                display: "flex", alignItems: "center", gap: 5,
+                transition: "all 0.2s", flexShrink: 0,
                 background: selectedModel === m.id ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.02)",
                 border: selectedModel === m.id ? "1px solid rgba(0,245,160,0.3)" : "1px solid rgba(255,255,255,0.05)",
                 color: selectedModel === m.id ? "#00f5a0" : "#2d3748",
+                touchAction: "manipulation", minHeight: 34,
               }}>
                 {isMobile ? m.name.split(" ").slice(0, 2).join(" ") : m.name}
                 <span style={{
@@ -818,13 +888,16 @@ function ChatApp({ currentUser, onLogout }) {
             {/* Scrollable messages */}
             <div style={{
               flex: 1, overflowY: "auto",
-              padding: isMobile ? "12px" : "20px",
-              paddingRight: avatarVisible && !showFileZone ? "188px" : (isMobile ? "12px" : "20px"),
+              padding: isMobile ? "12px 12px 8px" : "20px",
+              // ✅ FIX: Only reserve right padding for avatar on desktop (not mobile)
+              paddingRight: (avatarVisible && !isMobile && !isTablet) ? "188px" : (isMobile ? "12px" : "20px"),
               transition: "padding-right 0.25s ease",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
             }}>
               {messages.length === 0 ? (
                 <EmptyState
-                  onPrompt={(p) => { setInput(p); inputRef.current?.focus(); }}
+                  onPrompt={(p) => { setInput(p); if (!isMobile) inputRef.current?.focus(); }}
                   isMobile={isMobile}
                 />
               ) : (
@@ -834,24 +907,37 @@ function ChatApp({ currentUser, onLogout }) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Avatar — floats over message area, only on non-mobile */}
+            {/* ✅ FIX: Avatar renders on ALL screen sizes
+                Desktop: floats bottom-right over messages
+                Mobile/Tablet: small, pinned top-right corner of message area */}
             {avatarVisible && (
               <div style={{
                 position: "absolute",
-                bottom: showFileZone ? 168 : 16,
-                right: 16,
-                width: 156, zIndex: 20,
+                // Mobile: top-right corner, small
+                // Desktop: bottom-right, full size
+                top: isMobile ? 8 : (isTablet ? 10 : "auto"),
+                bottom: (!isMobile && !isTablet) ? (showFileZone ? 168 : 16) : "auto",
+                right: isMobile ? 8 : 16,
+                width: isMobile ? 72 : (isTablet ? 110 : 156),
+                zIndex: 20,
                 display: "flex", flexDirection: "column", alignItems: "center",
-                padding: "14px 10px 10px",
+                padding: isMobile ? "6px 4px 4px" : "14px 10px 10px",
                 background: "rgba(8,12,20,0.92)", backdropFilter: "blur(20px)",
-                borderRadius: 18, border: "1px solid rgba(0,245,160,0.1)",
+                borderRadius: isMobile ? 12 : 18,
+                border: "1px solid rgba(0,245,160,0.1)",
                 boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                transition: "bottom 0.3s cubic-bezier(0.4,0,0.2,1)",
+                transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
               }}>
-                <AIAvatar isSpeaking={isSpeaking} isThinking={isThinking} />
-                <div style={{ marginTop: 10, fontSize: 8, color: "#1a2030", textAlign: "center", letterSpacing: "0.1em" }}>
-                  BROWSER TTS<br />VOICE ENGINE
-                </div>
+                <AIAvatar
+                  isSpeaking={isSpeaking}
+                  isThinking={isThinking}
+                  size={isMobile ? "sm" : isTablet ? "md" : "lg"}
+                />
+                {!isMobile && (
+                  <div style={{ marginTop: 10, fontSize: 8, color: "#1a2030", textAlign: "center", letterSpacing: "0.1em" }}>
+                    BROWSER TTS<br />VOICE ENGINE
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -863,7 +949,10 @@ function ChatApp({ currentUser, onLogout }) {
               borderTop: "1px solid rgba(0,245,160,0.06)",
               background: "rgba(8,12,20,0.95)",
               display: "flex", gap: 8, overflowX: "auto", flexShrink: 0,
-              flexWrap: isMobile ? "wrap" : "nowrap",
+              flexWrap: "nowrap",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "none", msOverflowStyle: "none",
+              maxHeight: 70,
             }}>
               {attachedFiles.map((f, i) => (
                 <FileChip key={i} file={f} onRemove={() => removeFile(i)} isMobile={isMobile} />
@@ -882,37 +971,44 @@ function ChatApp({ currentUser, onLogout }) {
 
           {/* Input area */}
           <div
-            className="input-area"
+            className="input-area-wrap"
             style={{
               borderTop: "1px solid rgba(0,245,160,0.07)",
-              padding: isMobile ? "10px 12px 14px" : "12px 16px 16px",
+              padding: isMobile ? "10px 12px 12px" : "12px 16px 16px",
               background: "rgba(8,12,20,0.97)", backdropFilter: "blur(20px)",
               flexShrink: 0,
             }}
           >
             <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", gap: isMobile ? 6 : 8, alignItems: "flex-end" }}>
-              {/* Mic */}
-              <button onClick={isListening ? stopListening : startListening} style={{
-                width: isMobile ? 44 : 44, height: isMobile ? 44 : 44, borderRadius: 11, fontSize: 16, flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: isListening ? "rgba(245,101,101,0.12)" : "rgba(255,255,255,0.03)",
-                border: isListening ? "1px solid rgba(245,101,101,0.4)" : "1px solid rgba(255,255,255,0.07)",
-                color: isListening ? "#f56565" : "#2d3748",
-                animation: isListening ? "micPulse 1s infinite" : "none",
-                transition: "all 0.2s",
-                touchAction: "manipulation",
-              }} title="Voice input">{isListening ? "⏹" : "🎙"}</button>
 
-              {/* File attach */}
-              <button onClick={() => setShowFileZone(s => !s)} style={{
-                width: 44, height: 44, borderRadius: 11, fontSize: 16, flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: showFileZone || attachedFiles.length > 0 ? "rgba(0,217,245,0.1)" : "rgba(255,255,255,0.03)",
-                border: showFileZone || attachedFiles.length > 0 ? "1px solid rgba(0,217,245,0.35)" : "1px solid rgba(255,255,255,0.07)",
-                color: showFileZone || attachedFiles.length > 0 ? "#00d9f5" : "#2d3748",
-                transition: "all 0.2s", position: "relative",
-                touchAction: "manipulation",
-              }} title="Attach files">
+              {/* Mic button */}
+              <button
+                onClick={isListening ? stopListening : startListening}
+                style={{
+                  width: 44, height: 44, borderRadius: 11, fontSize: 18, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: isListening ? "rgba(245,101,101,0.12)" : "rgba(255,255,255,0.03)",
+                  border: isListening ? "1px solid rgba(245,101,101,0.4)" : "1px solid rgba(255,255,255,0.07)",
+                  color: isListening ? "#f56565" : "#2d3748",
+                  animation: isListening ? "micPulse 1s infinite" : "none",
+                  transition: "all 0.2s", touchAction: "manipulation",
+                }}
+                title="Voice input"
+              >{isListening ? "⏹" : "🎙"}</button>
+
+              {/* File attach button */}
+              <button
+                onClick={() => setShowFileZone(s => !s)}
+                style={{
+                  width: 44, height: 44, borderRadius: 11, fontSize: 18, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: showFileZone || attachedFiles.length > 0 ? "rgba(0,217,245,0.1)" : "rgba(255,255,255,0.03)",
+                  border: showFileZone || attachedFiles.length > 0 ? "1px solid rgba(0,217,245,0.35)" : "1px solid rgba(255,255,255,0.07)",
+                  color: showFileZone || attachedFiles.length > 0 ? "#00d9f5" : "#2d3748",
+                  transition: "all 0.2s", position: "relative", touchAction: "manipulation",
+                }}
+                title="Attach files"
+              >
                 📎
                 {attachedFiles.length > 0 && (
                   <span style={{
@@ -920,11 +1016,12 @@ function ChatApp({ currentUser, onLogout }) {
                     width: 16, height: 16, borderRadius: "50%", fontSize: 9,
                     background: "#00d9f5", color: "#000", fontWeight: 700,
                     display: "flex", alignItems: "center", justifyContent: "center",
+                    pointerEvents: "none",
                   }}>{attachedFiles.length}</span>
                 )}
               </button>
 
-              {/* Textarea */}
+              {/* Textarea wrapper */}
               <div style={{
                 flex: 1, position: "relative", borderRadius: 13,
                 background: isListening ? "rgba(245,101,101,0.04)" : "rgba(255,255,255,0.03)",
@@ -936,38 +1033,54 @@ function ChatApp({ currentUser, onLogout }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={isListening ? "Listening… speak now" : "Message ARIA… (Enter to send)"}
+                  placeholder={isListening ? "Listening… speak now" : "Message ARIA…"}
                   rows={1}
                   style={{
-                    width: "100%", padding: isMobile ? "11px 14px" : "12px 16px",
+                    width: "100%",
+                    padding: isMobile ? "12px 14px" : "12px 16px",
                     background: "transparent", border: "none",
                     color: isListening ? "#f56565" : "#e8eaf6",
-                    fontSize: isMobile ? 14 : 13,
+                    fontSize: isMobile ? 16 : 13,
                     fontFamily: "'IBM Plex Mono', monospace",
-                    resize: "none", maxHeight: isMobile ? 100 : 120, overflowY: "auto", lineHeight: 1.6,
+                    resize: "none",
+                    maxHeight: isMobile ? 100 : 120,
+                    overflowY: "auto",
+                    lineHeight: 1.6,
+                    WebkitAppearance: "none",
                   }}
                   onInput={(e) => {
                     e.target.style.height = "auto";
-                    e.target.style.height = Math.min(e.target.scrollHeight, isMobile ? 100 : 120) + "px";
+                    const maxH = window.innerHeight < 600 ? 72 : (isMobile ? 100 : 120);
+                    e.target.style.height = Math.min(e.target.scrollHeight, maxH) + "px";
                   }}
                 />
               </div>
 
-              {/* Send/Stop */}
+              {/* ✅ FIX: Send / Stop button — disabled only when truly nothing to send */}
               <button
                 onClick={loading ? stopGeneration : sendMessage}
                 disabled={!loading && !input.trim() && attachedFiles.length === 0}
                 style={{
-                  width: 44, height: 44, borderRadius: 11, fontSize: 18, flexShrink: 0,
+                  width: 44, height: 44, borderRadius: 11, fontSize: 20, flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "all 0.2s",
-                  background: loading ? "rgba(245,101,101,0.12)"
-                    : (input.trim() || attachedFiles.length > 0) ? "linear-gradient(135deg, #00f5a0, #00d9f5)"
+                  background: loading
+                    ? "rgba(245,101,101,0.12)"
+                    : (input.trim() || attachedFiles.length > 0)
+                    ? "linear-gradient(135deg, #00f5a0, #00d9f5)"
                     : "rgba(255,255,255,0.03)",
                   border: loading ? "1px solid rgba(245,101,101,0.3)" : "none",
-                  color: loading ? "#f56565" : (input.trim() || attachedFiles.length > 0) ? "#000" : "#1a2030",
-                  boxShadow: !loading && (input.trim() || attachedFiles.length > 0) ? "0 4px 18px rgba(0,245,160,0.3)" : "none",
+                  color: loading
+                    ? "#f56565"
+                    : (input.trim() || attachedFiles.length > 0)
+                    ? "#000"
+                    : "#1a2030",
+                  boxShadow: !loading && (input.trim() || attachedFiles.length > 0)
+                    ? "0 4px 18px rgba(0,245,160,0.3)"
+                    : "none",
                   touchAction: "manipulation",
+                  // ✅ Never pointer-events none, always tappable when active
+                  pointerEvents: (!loading && !input.trim() && attachedFiles.length === 0) ? "none" : "auto",
                 }}>
                 {loading ? "■" : "↑"}
               </button>
@@ -999,17 +1112,19 @@ function ChatApp({ currentUser, onLogout }) {
 // ── Empty State ───────────────────────────────────────────────────────────────
 function EmptyState({ onPrompt, isMobile }) {
   const prompts = [
-    "Explain quantum entanglement", "Write a Python web scraper",
-    "Summarize Stoicism's key ideas", "Analyze the uploaded document",
+    "Explain quantum entanglement",
+    "Write a Python web scraper",
+    "Summarize Stoicism's key ideas",
+    "Analyze the uploaded document",
   ];
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", minHeight: "60vh", gap: 12,
+      justifyContent: "center", minHeight: "55vh", gap: 12,
       color: "#2d3748", textAlign: "center",
       padding: isMobile ? "0 8px" : "0",
     }}>
-      <div style={{ fontSize: isMobile ? 40 : 56, opacity: 0.2 }}>◈</div>
+      <div style={{ fontSize: isMobile ? 38 : 56, opacity: 0.2 }}>◈</div>
       <div style={{
         fontSize: isMobile ? 16 : 20, fontFamily: "'Space Mono', monospace",
         background: "linear-gradient(90deg, #00f5a0, #00d9f5)",
@@ -1022,18 +1137,29 @@ function EmptyState({ onPrompt, isMobile }) {
         marginTop: 12,
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-        gap: 8, maxWidth: isMobile ? 280 : 440, width: "100%",
+        gap: 8, maxWidth: isMobile ? "100%" : 440, width: "100%",
       }}>
         {prompts.map(p => (
-          <button key={p} onClick={() => onPrompt(p)} style={{
-            padding: "10px 12px", borderRadius: 9, fontSize: isMobile ? 12 : 11,
-            fontFamily: "'IBM Plex Mono', monospace", textAlign: "left",
-            background: "rgba(255,255,255,0.02)", border: "1px solid rgba(0,245,160,0.08)",
-            color: "#2d3748", transition: "all 0.2s", lineHeight: 1.5,
-            touchAction: "manipulation",
-          }}
-            onMouseEnter={e => { e.target.style.background = "rgba(0,245,160,0.04)"; e.target.style.color = "#00f5a0"; e.target.style.borderColor = "rgba(0,245,160,0.2)"; }}
-            onMouseLeave={e => { e.target.style.background = "rgba(255,255,255,0.02)"; e.target.style.color = "#2d3748"; e.target.style.borderColor = "rgba(0,245,160,0.08)"; }}
+          <button
+            key={p}
+            onClick={() => onPrompt(p)}
+            style={{
+              padding: "11px 12px", borderRadius: 9, fontSize: isMobile ? 13 : 11,
+              fontFamily: "'IBM Plex Mono', monospace", textAlign: "left",
+              background: "rgba(255,255,255,0.02)", border: "1px solid rgba(0,245,160,0.08)",
+              color: "#2d3748", transition: "all 0.2s", lineHeight: 1.5,
+              touchAction: "manipulation", minHeight: 44,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "rgba(0,245,160,0.04)";
+              e.currentTarget.style.color = "#00f5a0";
+              e.currentTarget.style.borderColor = "rgba(0,245,160,0.2)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+              e.currentTarget.style.color = "#2d3748";
+              e.currentTarget.style.borderColor = "rgba(0,245,160,0.08)";
+            }}
           >{p}</button>
         ))}
       </div>
@@ -1060,16 +1186,25 @@ function FileChip({ file, onRemove, isMobile }) {
     }}>
       <span style={{ fontSize: 13 }}>{getIcon(file)}</span>
       <div>
-        <div style={{ fontSize: 10, color: "#00d9f5", fontWeight: 500, maxWidth: isMobile ? 80 : 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
+        <div style={{
+          fontSize: 10, color: "#00d9f5", fontWeight: 500,
+          maxWidth: isMobile ? 70 : 120,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{file.name}</div>
         <div style={{ fontSize: 9, color: "#2d3748" }}>{(file.size / 1024).toFixed(0)}KB</div>
       </div>
-      <button className="file-remove" onClick={onRemove} style={{
-        width: 18, height: 18, borderRadius: "50%", fontSize: 9,
-        background: "rgba(245,101,101,0.2)", color: "#f56565",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        opacity: isMobile ? 1 : 0, transition: "opacity 0.15s", marginLeft: 2,
-        touchAction: "manipulation",
-      }}>✕</button>
+      <button
+        className="file-remove"
+        onClick={onRemove}
+        style={{
+          width: 20, height: 20, borderRadius: "50%", fontSize: 9,
+          background: "rgba(245,101,101,0.2)", color: "#f56565",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: isMobile ? 1 : 0,
+          transition: "opacity 0.15s", marginLeft: 2,
+          touchAction: "manipulation", flexShrink: 0,
+        }}
+      >✕</button>
     </div>
   );
 }

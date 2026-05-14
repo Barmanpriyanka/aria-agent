@@ -1,11 +1,28 @@
-// ─── Drop-in replacement for the AIAvatar component in App.jsx ─────────────
-// Replace the entire AIAvatar function with this one.
-// All other code in App.jsx stays exactly the same.
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-function AIAvatar({ isSpeaking, isThinking }) {
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 600);
+  useEffect(() => {
+    const h = () => setMobile(window.innerWidth < 600);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return mobile;
+}
+
+function AIAvatar({ isSpeaking, isThinking, size = "auto" }) {
+  const isMobile = useIsMobile();
+
+  // size: "auto" = scale based on screen, or pass "sm" / "md" / "lg" explicitly
+  const scale = size === "sm" || (size === "auto" && isMobile) ? 0.62
+    : size === "md" ? 0.82
+    : 1;
+
+  const svgW = Math.round(140 * scale);
+  const svgH = Math.round(230 * scale);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: isMobile ? 6 : 10 }}>
       <style>{`
         @keyframes eyeBlink    { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(0.05)} }
         @keyframes eyeGlow     { 0%,100%{opacity:0.7} 50%{opacity:1} }
@@ -19,33 +36,44 @@ function AIAvatar({ isSpeaking, isThinking }) {
         @keyframes speakMouth  { 0%,100%{ry:2} 50%{ry:6} }
         @keyframes thinkPupil  { 0%,100%{transform:translateX(0)} 33%{transform:translateX(2px)} 66%{transform:translateX(-2px)} }
         @keyframes scanLine    { 0%{transform:translateY(-30px);opacity:0} 40%{opacity:0.5} 100%{transform:translateY(30px);opacity:0} }
-        @keyframes waveBarRobot { 0%{transform:scaleY(0.25)} 100%{transform:scaleY(1)} }
+        @keyframes waveBarRobot{ 0%{transform:scaleY(0.25)} 100%{transform:scaleY(1)} }
+        @keyframes ringPulse   { 0%,100%{opacity:0.4} 50%{opacity:0.85} }
       `}</style>
 
-      {/* Outer glow ring */}
+      {/* Outer glow ring + SVG */}
       <div style={{
         position: "relative",
-        width: 140, height: 230,
-        display: "flex", alignItems: "center", justifyContent: "center",
+        width: svgW,
+        height: svgH,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}>
-        {/* Animated ring behind robot */}
+        {/* Animated ring */}
         <div style={{
           position: "absolute",
-          inset: isSpeaking ? -8 : -4,
-          borderRadius: 24,
-          border: `1.5px solid ${
-            isSpeaking ? "rgba(0,245,160,0.5)"
-            : isThinking ? "rgba(0,217,245,0.4)"
+          inset: isSpeaking ? -6 : -3,
+          borderRadius: Math.round(24 * scale),
+          border: `${scale < 0.8 ? 1 : 1.5}px solid ${
+            isSpeaking  ? "rgba(0,245,160,0.55)"
+            : isThinking ? "rgba(0,217,245,0.45)"
             : "rgba(255,255,255,0.06)"
           }`,
-          animation: isSpeaking ? "bodyFloat 0.8s ease-in-out infinite"
+          animation: isSpeaking  ? "bodyFloat 0.8s ease-in-out infinite"
             : isThinking ? "bodyFloat 1.6s ease-in-out infinite"
             : "none",
           transition: "border-color 0.4s, inset 0.4s",
+          pointerEvents: "none",
         }} />
 
-        <svg width="140" height="230" viewBox="0 0 160 260" xmlns="http://www.w3.org/2000/svg"
-          style={{ animation: "bodyFloat 3s ease-in-out infinite" }}>
+        {/* The robot SVG — viewBox stays at 160×260, we control width/height */}
+        <svg
+          width={svgW}
+          height={svgH}
+          viewBox="0 0 160 260"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ animation: "bodyFloat 3s ease-in-out infinite", display: "block" }}
+        >
           <defs>
             <radialGradient id="rEye" cx="40%" cy="30%">
               <stop offset="0%" stopColor={isThinking ? "#00d9f5" : "#00f5a0"} />
@@ -104,14 +132,12 @@ function AIAvatar({ isSpeaking, isThinking }) {
 
             {/* Mouth */}
             <rect x="56" y="69" width="48" height="12" rx="6" fill="#060d14" stroke="#0a4060" strokeWidth="1"/>
-            {/* Smile — hidden when speaking */}
             {!isSpeaking && (
               <path d={isThinking ? "M64 75 Q80 72 96 75" : "M62 75 Q80 79 98 75"}
                 stroke={isThinking ? "#00d9f5" : "#00f5a0"} strokeWidth="1.5"
                 fill="none" strokeLinecap="round"
                 style={{ transition: "d 0.3s" }} />
             )}
-            {/* Speaking mouth — oval that animates */}
             {isSpeaking && (
               <ellipse cx="80" cy="75" rx="10" ry="4" fill="#00f5a0"
                 style={{ animation: "speakMouth 0.28s ease-in-out infinite" }} />
@@ -138,18 +164,18 @@ function AIAvatar({ isSpeaking, isThinking }) {
           <ellipse cx="78" cy="133" rx="2" ry="2" fill="rgba(255,255,255,0.5)"/>
 
           {/* Side vents */}
-          {[0,7,14].map(dy => (
+          {[0, 7, 14].map(dy => (
             <g key={dy}>
-              <rect x="36" y={115+dy} width="8" height="4" rx="2" fill="#0a1520"/>
-              <rect x="116" y={115+dy} width="8" height="4" rx="2" fill="#0a1520"/>
+              <rect x="36" y={115 + dy} width="8" height="4" rx="2" fill="#0a1520"/>
+              <rect x="116" y={115 + dy} width="8" height="4" rx="2" fill="#0a1520"/>
             </g>
           ))}
 
           {/* Status dots */}
-          {[0,9,18].map((dx, i) => (
-            <circle key={dx} cx={57+dx} cy="155" r="3"
+          {[0, 9, 18].map((dx, i) => (
+            <circle key={dx} cx={57 + dx} cy="155" r="3"
               fill={i === 1 ? "#00d9f5" : "#00f5a0"} opacity="0.7"
-              style={{ animation: `chestPulse 1.5s ${i*0.3}s ease-in-out infinite` }} />
+              style={{ animation: `chestPulse 1.5s ${i * 0.3}s ease-in-out infinite` }} />
           ))}
 
           {/* Shoulder joints */}
@@ -182,19 +208,25 @@ function AIAvatar({ isSpeaking, isThinking }) {
       </div>
 
       {/* Voice waveform bars */}
-      <div style={{ display: "flex", alignItems: "center", gap: 3, height: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 2 : 3, height: isMobile ? 16 : 24 }}>
         {isSpeaking
-          ? [0.6,1,0.7,1.2,0.5,1,0.8,0.4,1.1,0.6,0.9,0.5].map((h, i) => (
+          ? [0.6, 1, 0.7, 1.2, 0.5, 1, 0.8, 0.4, 1.1, 0.6, 0.9, 0.5].map((h, i) => (
               <div key={i} style={{
-                width: 3, borderRadius: 2,
+                width: isMobile ? 2 : 3,
+                borderRadius: 2,
                 background: "linear-gradient(to top, #00f5a0, #00d9f5)",
-                height: `${h * 20}px`,
+                height: `${h * (isMobile ? 13 : 20)}px`,
                 transformOrigin: "bottom",
                 animation: `waveBarRobot ${0.35 + Math.random() * 0.3}s ease-in-out ${i * 0.06}s infinite alternate`,
               }} />
             ))
           : (
-            <div style={{ fontSize: 9, color: "#2d3748", letterSpacing: "0.14em", fontFamily: "monospace" }}>
+            <div style={{
+              fontSize: isMobile ? 8 : 9,
+              color: "#2d3748",
+              letterSpacing: "0.14em",
+              fontFamily: "monospace",
+            }}>
               {isThinking ? "● ● ●" : "– – –"}
             </div>
           )
@@ -203,7 +235,9 @@ function AIAvatar({ isSpeaking, isThinking }) {
 
       {/* Status label */}
       <div style={{
-        fontSize: 10, letterSpacing: "0.15em", fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: isMobile ? 9 : 10,
+        letterSpacing: "0.15em",
+        fontFamily: "'IBM Plex Mono', monospace",
         color: isSpeaking ? "#00f5a0" : isThinking ? "#00d9f5" : "#2d3748",
         transition: "color 0.3s",
       }}>
